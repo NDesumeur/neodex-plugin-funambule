@@ -1,0 +1,20 @@
+{
+  "id": "neodex.funambule",
+  "name": "Funambule",
+  "version": "1.0.0",
+  "author": "NDesumeur",
+  "description": "Un funambule avance sur un fil tendu très haut au-dessus de la ville. Garde-le en équilibre contre le vent, le plus loin possible.",
+  "icon": "icon.png",
+  "entry": "index.js",
+  "view": "funambule",
+  "neobase": ">=4.0.0",
+  "type": "app",
+  "category": "Jeux",
+  "mobile": false,
+  "system": false,
+  "dependencies": {},
+  "sdk": "2.1.0",
+  "permissions": [
+    "storage"
+  ]
+}
