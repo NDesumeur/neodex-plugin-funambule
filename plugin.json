@@ -3,7 +3,7 @@
   "name": "Funambule",
   "version": "1.0.1",
   "author": "NDesumeur",
-  "description": "Un funambule avance sur un fil tendu très haut au-dessus de la ville. Garde-le en équilibre contre le vent, le plus loin possible.",
+  "description": "Jeu d'équilibre : un funambule avance tout seul sur un fil au-dessus de la ville, et tu le rattrapes en penchant sa perche avec ← et → ou à la souris. Plus il penche, plus il tombe vite ; le vent forcit avec la distance et des rafales, annoncées par des traits blancs, le bousculent. Va le plus loin possible : distance, poteaux franchis et record.",
   "icon": "icon.png",
   "entry": "index.js",
   "view": "funambule",
