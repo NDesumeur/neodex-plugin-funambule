@@ -9,6 +9,7 @@ A balance game: a tightrope walker moves forward on their own along a wire stret
 - **Space**: set off (and start again after a fall).
 - Hold **←** or **→**, or click and hold on the **left** or **right** half of the game, to tilt the pole that way.
 - **P**: pause.
+- **Full screen**: the button of the same name; Escape to leave it. Outside full screen, the game takes the room the window leaves.
 
 ## How it works
 
@@ -18,6 +19,18 @@ A balance game: a tightrope walker moves forward on their own along a wire stret
 - Sudden **gusts** add to it: they are announced a second ahead by white streaks crossing the screen from the side they come from, with a whoosh.
 - Past a certain angle, it is the **fall**.
 - A **pole** is passed every 26 metres.
+- When they lean hard, the walker (beret and striped shirt) lets go of the pole and **their arms windmill**, faster and faster; they go back to the pole as soon as they recover.
+
+## The cities
+
+Every **250 metres**, the wire passes over another city, with a fade, and its name shows up:
+
+1. **Paris** at sunset: Haussmann buildings with zinc roofs, the Eiffel Tower and the basilica on its hill.
+2. **Venice**: colourful houses along a canal, gondolas, mooring poles, bell towers and domes.
+3. **New York by night**: stars, a crescent moon, skyscrapers with lit windows and water tanks on the roofs.
+4. **The canyon**: red rock plateaus, hoodoos, a stone arch and cacti.
+
+Then the crossing starts again from Paris.
 
 ## Statistics
 

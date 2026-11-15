@@ -9,6 +9,7 @@ Un jeu d'équilibre : un funambule avance tout seul sur un fil tendu très haut 
 - **Espace** : partir (et recommencer après une chute).
 - Maintiens **←** ou **→**, ou clique et maintiens sur la moitié **gauche** ou **droite** du jeu, pour pencher la perche de ce côté.
 - **P** : pause.
+- **Plein écran** : le bouton du même nom ; Échap pour en sortir. Hors plein écran, le jeu prend la place que laisse la fenêtre.
 
 ## Comment ça marche
 
@@ -18,6 +19,18 @@ Un jeu d'équilibre : un funambule avance tout seul sur un fil tendu très haut 
 - Des **rafales** soudaines s'ajoutent : elles sont annoncées une seconde à l'avance par des traits blancs qui traversent l'écran du côté d'où elles viennent, avec un souffle sonore.
 - Au-delà d'une certaine inclinaison, c'est la **chute**.
 - Un **poteau** est franchi tous les 26 mètres.
+- Quand il penche fort, le funambule (béret et marinière) lâche la perche des mains et **ses bras moulinent**, de plus en plus vite ; ils reviennent sur la perche dès qu'il s'est rattrapé.
+
+## Les villes
+
+Tous les **250 mètres**, le fil passe au-dessus d'une autre ville, en fondu, et son nom s'affiche :
+
+1. **Paris** au coucher du soleil : immeubles haussmanniens aux toits de zinc, la tour Eiffel et la basilique sur sa colline.
+2. **Venise** : maisons colorées au bord d'un canal, gondoles, poteaux d'amarrage, campaniles et coupoles.
+3. **New York la nuit** : étoiles, croissant de lune, gratte-ciel aux fenêtres allumées et réservoirs d'eau sur les toits.
+4. **Le canyon** : plateaux de roche rouge, cheminées de fée, une arche de pierre et des cactus.
+
+Puis la traversée repart de Paris.
 
 ## Statistiques
 

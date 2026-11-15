@@ -5,18 +5,20 @@ const HTML = `<div class="appWrap wide">
   <div class="gMain"><div class="gameBox"><canvas id="fuCanvas" width="288" height="216"></canvas></div>
     <div class="gSide">
       <div class="sysCard"><b>RECORDS</b><div class="gStats" id="fuStats"></div></div>
-      <div class="row"><button class="btn main" id="fuNew">NOUVELLE TRAVERSÉE</button></div>
-      <div class="hint">Penche du côté opposé à la chute. Les rafales sont annoncées par des traits blancs qui traversent l'écran.</div>
+      <div class="row"><button class="btn main" id="fuNew">NOUVELLE TRAVERSÉE</button><button class="btn" id="fuFs">PLEIN ÉCRAN</button></div>
+      <div class="hint">Penche du côté opposé à la chute. Les rafales sont annoncées par des traits blancs qui traversent l'écran.</div><div class="hint">Tous les 250 m, le fil passe au-dessus d'une autre ville : Paris, Venise, New York la nuit, puis un canyon, et ça recommence.</div>
     </div></div>
 </div>`;
 const CSS = `.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
-.gameBox{display:grid;place-items:center;padding:10px;background:#05010b;flex:2;min-width:320px;position:relative}
+.gameBox{display:grid;place-items:center;padding:10px;background:#05010b;flex:2 1 560px;min-width:min(100%,340px);position:relative}
 .gameBox canvas{width:100%;image-rendering:pixelated;cursor:var(--cp,pointer);touch-action:none}
 .gSide{display:flex;flex-direction:column;gap:14px;flex:1;min-width:250px;max-width:420px}
 .gSide .sysCard{display:flex;flex-direction:column}
 .gStats{display:grid;grid-template-columns:1fr auto;gap:4px 14px}
 .gStats b{text-align:right}
-.gameBox canvas{max-width:620px;aspect-ratio:288/216}`;
+.gameBox canvas{width:min(100%,max(300px,calc((100vh - 190px) * 288 / 216)));height:auto;aspect-ratio:288/216}
+.gameBox:fullscreen{padding:0}
+.gameBox:fullscreen canvas{width:min(100vw,calc(100vh * 288 / 216))}`;
 /* ---------- l'habillage pixel art, dessiné à la main : police bitmap (accents compris), cadres, boutons, icônes ----------
    Tout est en pixels pleins, agrandis par 2 sans lissage : aucun dégradé, aucune ombre floue. */
 const PXK = (() => {
@@ -329,17 +331,88 @@ const FU = {W: 288, H: 216, ROPE: 150, X: 110, POLE: 260, FALL: 1.05};
 const fus = gstore('funambule', {games: 0, poles: 0, meters: 0});
 let fu = null;
 const fuNoise = x => { const i = Math.floor(x), f = x - i, s = f * f * (3 - 2 * f), h = n => { n = Math.imul(n ^ n >>> 15, 0x2c1b3c6d); n = Math.imul(n ^ n >>> 12, 0x297a2d39); return ((n ^ n >>> 15) >>> 0) / 4294967296; }; return h(i) * (1 - s) + h(i + 1) * s; };
-// le funambule, debout, 9 × 22 : pieds à la ligne 21 (point de pivot)
-const FU_BODY = [['...kkk...', '..kssk...', '..ksssk..', '..kssk...', '...kk....', '..krrk...', '.krrrrk..', '.krwrrk..', '.krrrrk..', '.krrwrk..', '.krrrrk..', '..kyyk...', '..kbbk...', '..kbbk...', '..kbbk...', '..kbkbk..', '..kbkbk..', '..kbkbk..', '..kbkbk..', '..kbkbk..', '.kkk.kkk.', '.........'],
-  ['...kkk...', '..kssk...', '..ksssk..', '..kssk...', '...kk....', '..krrk...', '.krrrrk..', '.krwrrk..', '.krrrrk..', '.krrwrk..', '.krrrrk..', '..kyyk...', '..kbbk...', '..kbbk...', '..kbbk...', '..kbbk...', '..kbkbk..', '..kbk.bk.', '.kbk..bk.', '.kbk..kkk', 'kkk......', '.........']];
-const FU_PAL = {k: '#1a1020', s: '#ffd0a8', r: '#ff4a5a', w: '#ffffff', y: '#ffd84a', b: '#2a3a8a'};
-const FU_SPR = FU_BODY.map(rows => { const c = el('canvas'); c.width = 9; c.height = 22; sprite(c.getContext('2d'), rows, 0, 0, FU_PAL); return c; });
-const FU_CITY = (() => { const c = el('canvas'); c.width = 400; c.height = 70; const g = c.getContext('2d'), r = seeded(11); let x = 0;
-  while (x < 400) { const w = 10 + Math.floor(r() * 16), h = 20 + Math.floor(r() * 46); px(g, '#141024', x, 70 - h, w, h); px(g, '#1e1834', x + 1, 70 - h + 1, w - 2, h);
-    for (let y = 70 - h + 3; y < 68; y += 4) for (let wx = x + 2; wx < x + w - 2; wx += 3) if (r() < .3) px(g, '#ffd84a', wx, y, 1, 2); x += w + 1; } return c; })();
-function fuNew() { fu = Object.assign(fu || {tick: 0, raf: 0}, {seen: fu ? fu.tick : 0, mode: 'ready', th: 0, w: 0, d: 0, push: 0, gust: 0, gustDir: 1, nextGust: 400, streaks: [], fallY: 0, record: false, dead: 0, poles: 0, step: 0}); }
+// le funambule, 11 × 20 (béret, marinière, ceinture) ; les jambes, les bras et la perche sont tracés à part pour pouvoir bouger
+const FU_BODY = ['....kkk....', '..kkrrrkk..', '.krrrrrrrk.', '..kkkkkkk..', '..ksssssk..', '..ksksksk..', '..ksssssk..', '..kssmssk..', '...kssskk..', '....kssk...',
+  '..kkwwwkk..', '.kwwwwwwwk.', '.krrrrrrrk.', '.kwwwwwwwk.', '.krrrrrrrk.', '.kwwwwwwwk.', '.krrrrrrrk.', '..kyyyyyk..', '..kbbbbbk..', '..kbbbbbk..'];
+const FU_PAL = {k: '#1a1020', s: '#ffd0a8', r: '#ff4a5a', w: '#ffffff', y: '#ffd84a', b: '#2a3a8a', m: '#a04a4a'};
+const FU_SPR = (() => { const c = el('canvas'); c.width = 11; c.height = 20; sprite(c.getContext('2d'), FU_BODY, 0, 0, FU_PAL); return c; })();
+// les villes : chacune un ciel, un lointain (monuments) et un premier plan, dessinés une fois sur 576 px qui se répètent
+const FU_TW = 576;
+const fuLayer = (h, fn) => { const c = el('canvas'); c.width = FU_TW; c.height = h; const g = c.getContext('2d'); g.imageSmoothingEnabled = false; fn(g, h); return c; };
+const fuWin = (g, r, x, y, w, h, lit, dark, p = .3, sx = 3, sy = 4) => { for (let yy = y; yy < y + h - 2; yy += sy) for (let xx = x; xx < x + w - 1; xx += sx) px(g, r() < p ? lit : dark, xx, yy, 1, 2); };
+function fuEiffel(g, x, base, h, c, c2) {  // la tour : quatre pieds qui se rejoignent, deux étages, l'antenne
+  for (let i = 0; i < h; i++) { const t = i / h, w = Math.round(2 + Math.pow(1 - t, 2.4) * 36), y = base - i;
+    if (t < .16) { const leg = Math.max(2, Math.round(w * .28)); px(g, c, x - (w >> 1), y, leg, 1); px(g, c, x + (w >> 1) - leg, y, leg, 1); }  // l'arche entre les pieds
+    else { px(g, c, x - (w >> 1), y, w, 1); if (w > 6 && i % 3 === 0) for (let k = 2; k < w - 2; k += 3) px(g, c2, x - (w >> 1) + k, y, 1, 1); } }
+  for (const t of [.16, .4]) { const w = Math.round(4 + Math.pow(1 - t, 2.4) * 36); px(g, c, x - (w >> 1) - 1, base - Math.round(t * h) - 1, w + 2, 2); }
+  px(g, c, x, base - h - 6, 1, 6);
+}
+const FU_SCENES = [
+  {name: 'PARIS', sky: ['#2a2058', '#3a2a6a', '#5a3a7a', '#8a4a7a', '#c86a6a', '#f0a070'], cloud: '#ffd8c0', cloud2: '#c88aa0', rope: '#1a1020',
+    far: fuLayer(130, (g, h) => { const r = seeded(21);
+      for (let x = 0; x < FU_TW; x += 6) px(g, '#7a4a7a', x, h - 26 - Math.round(r() * 6), 6, 40);  // les toits lointains
+      fuEiffel(g, 150, h - 20, 112, '#4a2a5a', '#7a4a7a');
+      px(g, '#6a3a6a', 384, h - 44, 90, 30); for (const [dx, rr] of [[30, 11], [14, 6], [48, 6]]) { for (let k = 0; k <= rr; k++) px(g, '#6a3a6a', 384 + dx - Math.round(Math.sqrt(rr * rr - k * k)), h - 44 - k, Math.round(Math.sqrt(rr * rr - k * k)) * 2, 1); px(g, '#6a3a6a', 384 + dx, h - 44 - rr - 5, 1, 5); }  // la basilique sur sa colline
+    }),
+    near: fuLayer(80, (g, h) => { const r = seeded(22); let x = 0;
+      while (x < FU_TW - 30) { const w = 28 + Math.floor(r() * 22), bh = 30 + Math.floor(r() * 22), y = h - bh;
+        px(g, '#1a1020', x, y, w, bh); px(g, '#d8c0a0', x + 1, y + 8, w - 2, bh); px(g, '#b89a80', x + w - 4, y + 8, 3, bh);  // la façade en pierre
+        for (let k = 0; k < 8; k++) px(g, k < 2 ? '#1a1020' : '#5a6a88', x + 1 + Math.round(k * .6), y + k, w - 2 - Math.round(k * 1.2), 1);  // le toit de zinc, en pente
+        for (let d = x + 5; d < x + w - 6; d += 9) { px(g, '#d8c0a0', d, y + 2, 4, 5); px(g, '#3a3050', d + 1, y + 3, 2, 3); }  // les lucarnes
+        px(g, '#8a5a4a', x + 4, y - 4, 3, 5); px(g, '#8a5a4a', x + w - 9, y - 3, 3, 4);
+        for (let yy = y + 11; yy < h - 6; yy += 8) { for (let xx = x + 3; xx < x + w - 5; xx += 5) px(g, r() < .25 ? '#ffd84a' : '#4a4060', xx, yy, 2, 4); px(g, '#2a2030', x + 2, yy + 5, w - 6, 1); }  // fenêtres et balcons
+        x += w; }
+    })},
+  {name: 'VENISE', sky: ['#3a6aa8', '#5a8ac0', '#8ab0d0', '#d8c8a0', '#f0b878', '#f8d8a0'], cloud: '#ffffff', cloud2: '#d8c0b0', rope: '#1a1020',
+    far: fuLayer(130, (g, h) => { const r = seeded(31), c = '#8a7a9a';
+      for (let x = 0; x < FU_TW; x += 8) px(g, '#a08aa0', x, h - 30 - Math.round(r() * 8), 8, 40);
+      for (const [x, th] of [[190, 88], [470, 60]]) { px(g, c, x, h - 30 - th, 9, th); px(g, '#6a5a7a', x + 2, h - 30 - th + 6, 5, 6); for (let k = 0; k < 10; k++) px(g, c, x + 4 - (k >> 1), h - 30 - th - 10 + k, (k >> 1) * 2 + 1, 1); }  // les campaniles
+      for (const [dx, rr] of [[300, 12], [276, 8], [324, 8], [256, 6], [344, 6]]) { for (let k = 0; k <= rr; k++) { const w = Math.round(Math.sqrt(rr * rr - k * k)); px(g, c, dx - w, h - 40 - k, w * 2, 1); } px(g, c, dx, h - 40 - rr - 4, 1, 4); }  // les coupoles
+      px(g, c, 248, h - 40, 104, 14);
+    }),
+    near: fuLayer(80, (g, h) => { const r = seeded(32), cols = ['#d89a4a', '#c8603a', '#d88a8a', '#e8d0a0', '#b85a4a', '#e0a860']; let x = 0; const wy = h - 16;
+      while (x < FU_TW - 24) { const w = 20 + Math.floor(r() * 18), bh = 26 + Math.floor(r() * 26), y = wy - bh, c = cols[Math.floor(r() * cols.length)];
+        px(g, '#1a1020', x, y, w, bh); px(g, c, x + 1, y + 1, w - 2, bh - 1); px(g, '#8a3a2a', x, y - 2, w, 3);  // tuiles
+        for (let yy = y + 5; yy < wy - 7; yy += 9) for (let xx = x + 3; xx < x + w - 4; xx += 6) { px(g, '#3a2a3a', xx, yy + 1, 3, 5); px(g, '#3a2a3a', xx + 1, yy, 1, 1); px(g, '#f0e0c0', xx - 1, yy + 6, 5, 1); }  // fenêtres en arc
+        x += w + (r() < .3 ? 6 : 0); }
+      px(g, '#2a6a8a', 0, wy, FU_TW, 16); for (let i = 0; i < 90; i++) px(g, r() < .5 ? '#5aa0c0' : '#1a4a6a', Math.floor(r() * FU_TW), wy + 2 + Math.floor(r() * 13), 3 + Math.floor(r() * 5), 1);  // le canal
+      for (let x2 = 30; x2 < FU_TW; x2 += 140) { for (let k = 0; k < 14; k++) px(g, k % 4 < 2 ? '#ffffff' : '#c8303a', x2, wy - 8 + k, 2, 1); }  // les poteaux d'amarrage
+      for (const gx of [80, 360]) { px(g, '#1a1020', gx, wy + 4, 26, 3); px(g, '#1a1020', gx + 1, wy + 3, 2, 1); px(g, '#1a1020', gx + 23, wy + 1, 2, 3); px(g, '#1a1020', gx + 17, wy - 6, 1, 10); px(g, '#ffffff', gx + 15, wy - 4, 3, 2); }  // les gondoles et leur gondolier
+    })},
+  {name: 'NEW YORK', sky: ['#05061a', '#0a0c26', '#10143a', '#161c4a', '#1e2458', '#2a2e66'], stars: true, rope: '#c8c0d8',
+    far: fuLayer(130, (g, h) => { const r = seeded(41); let x = 0;
+      while (x < FU_TW) { const w = 10 + Math.floor(r() * 16), bh = 40 + Math.floor(r() * 50); px(g, '#141838', x, h - bh, w, bh); fuWin(g, r, x + 2, h - bh + 3, w - 3, bh - 3, '#c8a840', '#141838', .12); x += w + 1; }
+      const ex = 250; for (const [w, top] of [[26, 70], [18, 88], [10, 100], [4, 108]]) { px(g, '#1c2048', ex - (w >> 1), h - top, w, top); } px(g, '#c8c8e0', ex, h - 118, 1, 10); px(g, '#ff4a5a', ex, h - 119, 1, 1);  // le gratte-ciel à étages et son antenne
+      fuWin(g, r, ex - 12, h - 68, 24, 66, '#ffd84a', '#1c2048', .3);
+      const cx = 470; px(g, '#1c2048', cx - 9, h - 92, 18, 92); for (let k = 0; k < 4; k++) { const w = 16 - k * 4; for (let a = 0; a <= w; a += 2) px(g, '#c8c8e0', cx - (w >> 1) + a, h - 92 - k * 5 - Math.round(Math.sin(a / w * Math.PI) * 3), 1, 2); } px(g, '#c8c8e0', cx, h - 116, 1, 6);  // la couronne en arcs
+      fuWin(g, r, cx - 7, h - 86, 14, 84, '#ffd84a', '#1c2048', .3);
+    }),
+    near: fuLayer(80, (g, h) => { const r = seeded(42); let x = 0;
+      while (x < FU_TW - 20) { const w = 18 + Math.floor(r() * 22), bh = 34 + Math.floor(r() * 44), y = h - bh;
+        px(g, '#05061a', x, y, w, bh); px(g, '#1a1e3a', x + 1, y + 1, w - 2, bh); fuWin(g, r, x + 3, y + 4, w - 5, bh - 4, r() < .5 ? '#ffd84a' : '#fff0c0', '#0e1028', .45, 3, 4);
+        if (r() < .5) { const tx = x + 4 + Math.floor(r() * (w - 12)); px(g, '#05061a', tx, y - 9, 7, 7); px(g, '#4a3a3a', tx + 1, y - 8, 5, 5); px(g, '#05061a', tx + 1, y - 2, 1, 2); px(g, '#05061a', tx + 5, y - 2, 1, 2); px(g, '#05061a', tx, y - 10, 7, 1); }  // un réservoir d'eau sur le toit
+        x += w + 1; }
+    })},
+  {name: 'CANYON', sky: ['#3a8ad8', '#5aa0e0', '#8ac0e8', '#f0c890', '#f0a060', '#e88050'], cloud: '#fff0e0', cloud2: '#e8b8a0', rope: '#1a1020',
+    far: fuLayer(130, (g, h) => { const r = seeded(51); let x = -10;
+      while (x < FU_TW) { const w = 50 + Math.floor(r() * 70), bh = 40 + Math.floor(r() * 42), y = h - bh;
+        for (let yy = y; yy < h; yy++) { const sl = Math.max(0, Math.round((yy - y) * .5)), band = Math.floor((yy - y) / 7) % 2; px(g, band ? '#a8584a' : '#b8684a', x - sl, yy, w + sl * 2, 1); }  // un plateau aux couches de roche
+        px(g, '#d8885a', x, y, w, 2); x += w + 20 + Math.floor(r() * 40); }
+    }),
+    near: fuLayer(80, (g, h) => { const r = seeded(52);
+      px(g, '#d8a060', 0, h - 12, FU_TW, 12); for (let i = 0; i < 80; i++) px(g, '#c08850', Math.floor(r() * FU_TW), h - 11 + Math.floor(r() * 11), 2, 1);
+      for (let x = 20; x < FU_TW - 30; x += 70 + Math.floor(r() * 50)) { const w = 10 + Math.floor(r() * 8), bh = 30 + Math.floor(r() * 36);  // les cheminées de fée
+        for (let yy = h - 12 - bh; yy < h - 12; yy++) { const t = (yy - (h - 12 - bh)) / bh, ww = Math.round(w * (.7 + .3 * Math.sin(t * 9))); px(g, '#1a1020', x - (ww >> 1) - 1, yy, ww + 2, 1); px(g, Math.floor(yy / 5) % 2 ? '#c86a4a' : '#b85a3a', x - (ww >> 1), yy, ww, 1); }
+        px(g, '#8a3a2a', x - (w >> 1) - 2, h - 12 - bh - 3, w + 4, 4); }
+      const ax = 300; for (let a = 0; a < 60; a++) { const t = a / 59 * Math.PI, ox = Math.round(-Math.cos(t) * 30), oy = Math.round(Math.sin(t) * 34); px(g, '#1a1020', ax + ox - 1, h - 12 - oy - 6, 8, 9); px(g, '#c86a4a', ax + ox, h - 12 - oy - 5, 6, 7); }  // l'arche de pierre
+      for (let k = 0; k < 6; k++) { const cx = 40 + k * 97 + Math.floor(r() * 20), ch = 10 + Math.floor(r() * 8); px(g, '#2a6a3a', cx, h - 12 - ch, 3, ch); px(g, '#2a6a3a', cx - 3, h - 18 - Math.floor(ch / 3), 2, 6); px(g, '#2a6a3a', cx - 3, h - 13 - Math.floor(ch / 3), 4, 2); px(g, '#2a6a3a', cx + 4, h - 20 - Math.floor(ch / 4), 2, 6); px(g, '#2a6a3a', cx + 2, h - 15 - Math.floor(ch / 4), 4, 2); px(g, '#4a9a4a', cx, h - 12 - ch, 1, ch); }  // les cactus
+    })},
+];
+const FU_STARS = Array.from({length: 40}, (_, i) => { const r = seeded(60 + i); return [Math.floor(r() * 288), Math.floor(r() * 120), r() < .3]; });
+const fuScene = d => { const m = d / 10; return {i: Math.floor(m / 250) % FU_SCENES.length, prev: (Math.floor(m / 250) + FU_SCENES.length - 1) % FU_SCENES.length, t: m < 250 ? 1 : Math.min(1, (m % 250) / 20), into: m % 250}; };
+function fuNew() { fu = Object.assign(fu || {tick: 0, raf: 0}, {seen: fu ? fu.tick : 0, mode: 'ready', th: 0, w: 0, d: 0, phi: 0, panic: 0, push: 0, gust: 0, gustDir: 1, nextGust: 400, streaks: [], fallY: 0, record: false, dead: 0, poles: 0, step: 0}); }
 let fuac = null;
-function fuBeep(f, d, type = 'triangle', slide = 0) { try { fuac ??= new AudioContext(); const o = fuac.createOscillator(), g = fuac.createGain(), t = fuac.currentTime; o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(fuac.destination); o.start(t); o.stop(t + d + .02); } catch {} }
+let fuBeep = function (f, d, type = 'triangle', slide = 0) { try { fuac ??= new AudioContext(); const o = fuac.createOscillator(), g = fuac.createGain(), t = fuac.currentTime; o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(fuac.destination); o.start(t); o.stop(t + d + .02); } catch {} }
 const fuKeys = {L: false, R: false, ptr: 0};
 function fuStart() {
   if (fu.mode === 'ready') { fu.mode = 'play'; fus.games++; saveGames(); }
@@ -348,7 +421,7 @@ function fuStart() {
 }
 const fuWind = () => (fuNoise(fu.d / 90) - .5) * Math.min(1, fu.d / 2500) * .0016 + fu.gust * fu.gustDir;
 function fuUpdate() {
-  if (fu.mode === 'over') { fu.dead++; fu.th += Math.sign(fu.th) * .05; fu.fallY += 1 + fu.dead * .15; return; }
+  if (fu.mode === 'over') { fu.dead++; fu.th += Math.sign(fu.th) * .05; fu.fallY += 1 + fu.dead * .15; fu.panic = 1; fu.phi += .5; return; }
   if (fu.mode !== 'play') return;
   const sp = .55 + Math.min(.35, fu.d / 8000); fu.d += sp; fu.step += sp;
   fu.push = (fuKeys.L || fuKeys.ptr < 0 ? -1 : 0) + (fuKeys.R || fuKeys.ptr > 0 ? 1 : 0);
@@ -357,6 +430,7 @@ function fuUpdate() {
   if (fu.nextGust <= 0) { fu.gust = .0006 + Math.min(.0006, fu.d / 30000); fu.nextGust = 360 + Math.random() * 300 - Math.min(150, fu.d / 40); fuBeep(180, .5, 'sawtooth', 120); }
   fu.gust *= .985;
   fu.w += Math.sin(fu.th) * .003 + fuWind() * Math.cos(fu.th) + fu.push * .0026; fu.w *= .98; fu.th += fu.w;
+  const pk = Math.min(1, Math.max(0, (Math.abs(fu.th) - .35) / .4)); fu.panic += (pk - fu.panic) * .15; fu.phi += (.12 + .38 * fu.panic) * (fu.th > 0 ? 1 : -1) * (fu.panic > .05 ? 1 : 0);
   for (const s of fu.streaks) s.x += fu.gustDir * 5; fu.streaks = fu.streaks.filter(s => s.x > -60 && s.x < FU.W + 60 + 200);
   if (Math.floor((fu.d - sp) / FU.POLE) < Math.floor(fu.d / FU.POLE)) { fu.poles++; fuBeep(784, .12, 'square', 1046); }
   if (Math.abs(fu.th) > FU.FALL) { fu.mode = 'over'; fu.dead = 0; fuBeep(500, .9, 'triangle', 60); const m = Math.floor(fu.d / 10); fu.record = best('funambule', m); fus.poles += fu.poles; fus.meters += m; saveGames(); fuInfo(); }
@@ -367,26 +441,41 @@ function fuDraw() {
   for (; fu.seen < fu.tick; fu.seen++) if (fu.mode !== 'play') fuUpdate();
   g.imageSmoothingEnabled = false;
   // ciel du soir en bandes, nuages, la ville tout en bas
-  ['#2a2058', '#3a2a6a', '#5a3a7a', '#8a4a7a', '#c86a6a', '#f0a070'].forEach((c, i) => px(g, c, 0, i * 30, W, 31));
-  px(g, '#f0a070', 0, 180, W, 36);
-  for (let i = 0; i < 6; i++) { const x = ((i * 83 - fu.d * .2) % (W + 80) + W + 80) % (W + 80) - 50, y = 18 + (i * 37) % 90; px(g, '#ffd8c0', x, y + 3, 36, 4); px(g, '#ffd8c0', x + 8, y, 18, 3); px(g, '#c88aa0', x + 2, y + 7, 32, 2); }
-  g.drawImage(FU_CITY, -Math.floor((fu.d * .35) % 200), H - 70);
+  const SC = fuScene(fu.d), sc = FU_SCENES[SC.i];
+  const scene = S => {
+    S.sky.forEach((c, i) => px(g, c, 0, i * 30, W, 31)); px(g, S.sky[5], 0, 180, W, 36);
+    if (S.stars) { for (const [x, y, big] of FU_STARS) px(g, (fu.tick >> 4) % 7 === (x % 7) ? '#8a8ab0' : '#ffffff', x, y, big ? 2 : 1, 1); for (let k = -6; k <= 6; k++) { const w = Math.round(Math.sqrt(36 - k * k)), w2 = Math.round(Math.sqrt(Math.max(0, 30 - (k + 2) * (k + 2)))); px(g, '#f0f0d8', 236 - w, 28 + k, w * 2 + 1, 1); if (w2) px(g, S.sky[0], 240 - w2, 28 + k, w2 * 2 + 1, 1); } }  // étoiles et croissant de lune
+    else for (let i = 0; i < 6; i++) { const x = ((i * 83 - fu.d * .2) % (W + 80) + W + 80) % (W + 80) - 50, y = 18 + (i * 37) % 90; px(g, S.cloud, x, y + 3, 36, 4); px(g, S.cloud, x + 8, y, 18, 3); px(g, S.cloud2, x + 2, y + 7, 32, 2); }
+    for (const [L, k, y] of [[S.far, .12, H - 130], [S.near, .35, H - 80]]) { const o = -Math.floor((fu.d * k) % FU_TW); g.drawImage(L, o, y); g.drawImage(L, o + FU_TW, y); }
+  };
+  if (SC.t < 1) { scene(FU_SCENES[SC.prev]); g.globalAlpha = SC.t; scene(sc); g.globalAlpha = 1; } else scene(sc);
   // le fil et les poteaux (un poteau tous les 26 m)
   const off = fu.d % FU.POLE;
   for (let k = -1; k < 3; k++) { const x = Math.round(X - off + k * FU.POLE + 40); px(g, '#1a1020', x - 3, ROPE, 7, H - ROPE); px(g, '#5a4a6a', x - 2, ROPE, 2, H - ROPE); px(g, '#1a1020', x - 6, ROPE - 3, 13, 4); px(g, '#ffd84a', x - 5, ROPE - 2, 11, 2); }
-  for (let x = 0; x < W; x++) px(g, '#1a1020', x, ROPE + Math.round(Math.sin((x + fu.d) / 30) * .6), 1, 1);
+  for (let x = 0; x < W; x++) px(g, sc.rope, x, ROPE + Math.round(Math.sin((x + fu.d) / 30) * .6), 1, 1);
   for (let x = 0; x < W; x += 3) px(g, '#c8c0b0', x, ROPE - 1, 1, 1);
   for (const s of fu.streaks) { px(g, '#ffffff', s.x, s.y, 18, 1); px(g, '#ffffffaa', s.x + (fu.gustDir > 0 ? -10 : 18), s.y + 3, 10, 1); }
   // le funambule pivote autour de ses pieds ; la perche suit ses épaules et ploie au bout
-  const th = Math.round(fu.th * 16) / 16, ft = Math.floor(fu.step / 9) % 2, fy = ROPE - 1 + Math.round(fu.fallY);
-  g.save(); g.translate(X, fy); g.rotate(th); g.drawImage(FU_SPR[fu.mode === 'play' ? ft : 0], -4, -21); g.restore();
-  const sx = X + Math.sin(th) * 13, sy = fy - Math.cos(th) * 13, cx = Math.cos(th), cy = Math.sin(th), L = 34, tip = fu.push * 3;
+  const th = Math.round(fu.th * 16) / 16, ph = fu.mode === 'play' ? fu.step / 9 * Math.PI : 0, fy = ROPE - 1 + Math.round(fu.fallY);
+  g.save(); g.translate(X, fy); g.rotate(th);
+  const seg = (x0, y0, x1, y1, c, w = 2) => { g.fillStyle = c; const n = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))) || 1; for (let i = 0; i <= n; i++) g.fillRect(Math.round(x0 + (x1 - x0) * i / n) - (w >> 1), Math.round(y0 + (y1 - y0) * i / n) - (w >> 1), w, w); };
+  // les jambes : un pas l'une devant l'autre sur le fil (pieds à y = 0)
+  const step = Math.sin(ph) * 3, knee = Math.abs(Math.cos(ph)) * 2;
+  for (const [sgn, c] of [[-1, '#1a1020'], [1, '#2a3a8a']]) { g.fillStyle = '#1a1020'; seg(sgn * 2, -12, sgn * step + 1, -6 - knee, '#1a1020', 3); seg(sgn * step + 1, -6 - knee, sgn * step * 1.4, 0, '#1a1020', 3); g.fillStyle = c; seg(sgn * 2, -12, sgn * step + 1, -6 - knee, c, 1); seg(sgn * step + 1, -6 - knee, sgn * step * 1.4, -1, c, 1); px(g, '#1a1020', Math.round(sgn * step * 1.4) - 2, -2, 5, 2); }
+  g.drawImage(FU_SPR, -5, -31);
+  // les bras : posés sur la perche, ou qui moulinent quand il penche
+  const sh = [[-4, -20], [4, -20]], hands = sh.map(([x, y], i) => { const rest = [x * 2.1, -14], a = fu.phi + i * Math.PI, wind = [x + Math.sin(a) * 9, y - Math.cos(a) * 9]; return rest.map((v, k) => v + (wind[k] - v) * fu.panic); });
+  sh.forEach(([x, y], i) => { const [hx, hy] = hands[i], ex = (x + hx) / 2 + (i ? 2 : -2) * (1 - fu.panic), ey = (y + hy) / 2 + 1; g.fillStyle = '#1a1020'; seg(x, y, ex, ey, '#1a1020', 3); seg(ex, ey, hx, hy, '#1a1020', 3); g.fillStyle = '#ff4a5a'; seg(x, y, ex, ey, '#ff4a5a', 1); g.fillStyle = '#ffd0a8'; seg(ex, ey, hx, hy, '#ffd0a8', 1); px(g, '#ffd0a8', Math.round(hx) - 1, Math.round(hy) - 1, 2, 2); });
+  g.restore();
+  // la perche, tenue à la taille : elle ploie au bout du côté où l'on pousse
+  const sx = X + Math.sin(th) * 14, sy = fy - Math.cos(th) * 14, cx = Math.cos(th), cy = Math.sin(th), L = 38, tip = fu.push * 3;
   fuLine(g, sx - cx * L, sy - cy * L + 3 - tip, sx + cx * L, sy + cy * L + 3 + tip, '#1a1020');
   px(g, '#ff4a5a', sx - cx * L - 1, sy - cy * L + 2 - tip, 3, 3); px(g, '#ff4a5a', sx + cx * L - 1, sy + cy * L + 2 + tip, 3, 3);
   // la jauge d'équilibre : un arc de pixels, l'aiguille et la zone rouge
   for (let a = -FU.FALL; a <= FU.FALL; a += .03) px(g, Math.abs(a) > FU.FALL * .7 ? '#ff4a5a' : '#ffffff', W / 2 + Math.sin(a) * 30, 46 - Math.cos(a) * 30, 1, 1);
   fuLine(g, W / 2, 46, W / 2 + Math.sin(fu.th) * 26, 46 - Math.cos(fu.th) * 26, Math.abs(fu.th) > FU.FALL * .7 ? '#ff4a5a' : '#ffd84a');
   pxFont(g, Math.floor(fu.d / 10) + ' m', 6, 14, '#ffffff', 12);
+  if (fu.mode === 'play' && SC.into < 30 && (fu.d > 0)) { g.globalAlpha = Math.min(1, (30 - SC.into) / 8); pxFont(g, sc.name, W / 2, 80, '#ffd84a', 16, 'center'); g.globalAlpha = 1; }
   if (fu.mode === 'play' && Math.abs(fuWind()) > .0006) pxFont(g, fuWind() > 0 ? 'VENT →' : '← VENT', W - 6, 14, '#ffffff', 8, 'right');
   if (fu.mode === 'ready') gameText(g, W, [['FUNAMBULE', '#ff4a5a', 16], ['Maintiens ← ou → pour te rattraper', '#ffffff'], ['Espace pour partir', '#b8b0d8'], ['Record ' + (games.best.funambule || 0) + ' m', '#ffd84a']], 78);
   if (fu.mode === 'pause') gameText(g, W, [['PAUSE', '#ffffff', 12], ['Espace pour reprendre', '#b8b0d8']], 90);
@@ -406,14 +495,19 @@ document.addEventListener('keyup', e => { if (['ArrowLeft', 'a', 'q'].includes(e
 $('fuCanvas').onpointerdown = e => { e.preventDefault(); if (!fu) return; if (fu.mode !== 'play') return fuStart(); const b = e.currentTarget.getBoundingClientRect(); fuKeys.ptr = e.clientX < b.left + b.width / 2 ? -1 : 1; };
 document.addEventListener('pointerup', () => { fuKeys.ptr = 0; });
 $('fuNew').onclick = () => { fuNew(); $('fuNew').blur(); };
-{  // vérification : sans rien faire il tombe ; en corrigeant contre l'angle il tient 60 s
-  const keep = fu, realBest = games.best.funambule, realStats = {...fus}; fu = null;
-  fuNew(); fu.mode = 'play'; fu.th = .05; let n = 0; while (fu.mode === 'play' && n < 2000) { fuUpdate(); n++; } const falls = fu.mode === 'over';
-  fuNew(); fu.mode = 'play'; fu.th = .05; for (let i = 0; i < 3600 && fu.mode === 'play'; i++) { fuKeys.L = fu.th + fu.w * 12 > 0; fuKeys.R = !fuKeys.L; fuUpdate(); } const holds = fu.mode === 'play'; fuKeys.L = fuKeys.R = false;
-  console.assert(falls && holds, 'funambule', {falls, holds});
-  if (realBest === undefined) delete games.best.funambule; else games.best.funambule = realBest; Object.assign(fus, realStats);
-  fu = keep;
+$('fuFs').onclick = () => { $('fuFs').blur(); try { if (document.fullscreenElement) document.exitFullscreen(); else $('fuCanvas').parentElement.requestFullscreen?.().catch(() => {}); } catch {} };
+function fuCheck() {  // vérification : sans rien faire il tombe ; en corrigeant contre l'angle il tient 60 s ; les villes se suivent ; les bras moulinent quand il penche
+  const keep = fu, realBest = games.best.funambule, realStats = {...fus}, kb = fuBeep, bad = []; fuBeep = () => {}; fu = null;
+  fuNew(); fu.mode = 'play'; fu.th = .05; let n = 0; while (fu.mode === 'play' && n < 2000) { fuUpdate(); n++; } if (fu.mode !== 'over') bad.push('chute');
+  fuNew(); fu.mode = 'play'; fu.th = .05; let calm = true; for (let i = 0; i < 3600 && fu.mode === 'play'; i++) { fuKeys.L = fu.th + fu.w * 12 > 0; fuKeys.R = !fuKeys.L; fuUpdate(); if (Math.abs(fu.th) < .2 && fu.panic > .5) calm = false; } if (fu.mode !== 'play') bad.push('équilibre'); if (!calm) bad.push('bras au calme'); fuKeys.L = fuKeys.R = false;
+  if ([0, 2600, 5100, 7600, 10100].map(d => fuScene(d).i).join() !== '0,1,2,3,0' || fuScene(2600).t !== .5 || fuScene(100).t !== 1) bad.push('villes');
+  fuNew(); fu.mode = 'play'; fu.th = .7; const p0 = fu.phi; for (let i = 0; i < 12; i++) { fu.w = 0; fu.th = .7; fuUpdate(); } if (!(fu.panic > .5 && fu.phi - p0 > 1)) bad.push('moulinet');
+  if (FU_BODY.some(r => r.length !== 11) || FU_SCENES.some(S => S.far.width !== FU_TW || S.near.width !== FU_TW)) bad.push('dessins');
+  if (realBest === undefined) delete games.best.funambule; else games.best.funambule = realBest; Object.assign(fus, realStats); fuBeep = kb;
+  fu = keep; return bad.length ? bad.join(', ') : 'ok';
 }
+{ const c = fuCheck(); console.assert(c === 'ok', 'funambule', c); }
+$('fuCanvas').__fu = {st: () => fu, check: fuCheck, keys: fuKeys};
 ctx.onOpen(() => {
   if (!fu || !fu.g) { fuNew(); fu.g = $('fuCanvas').getContext('2d'); }
   gameLoop(fu, 'funambule', fuUpdate, fuDraw); fuInfo();
