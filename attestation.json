@@ -1,9 +1,9 @@
 {
   "pluginId": "neodex.funambule",
   "repo": "NDesumeur/neodex-plugin-funambule",
-  "version": "1.0.2",
-  "sha256": "2f333073324d77ec5dd2a9a441669fcbd296389891c8748816689fc47416e194",
-  "approvedAt": "2026-11-08T12:10:47.995Z",
+  "version": "1.1.0",
+  "sha256": "4ad7abb210b818f80998425b8bf2938fa66b16b1fce722473febea7d42df94d9",
+  "approvedAt": "2026-11-16T04:14:36.106Z",
   "neobase": ">=4.0.0",
-  "signature": "UsACRlPMdM7reCprmjT0xuBDR7kYK4vipEIKOi7HHxscJ95pswk23u4E7qqKfzZ+ie3XA6S1ITaefiyHnWLcCg=="
+  "signature": "EYQEYt+mmB8tB6RqMOoPn/qAVNrp/Uce3T+LUQFYUquAoZeo8cfdZXsVIF4yu6juoLiiUqTsWO8Fhg+YCMqRCA=="
 }
