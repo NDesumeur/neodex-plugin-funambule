@@ -1,7 +1,7 @@
 {
   "id": "neodex.funambule",
   "name": "Funambule",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "author": "NDesumeur",
   "description": "Jeu d'équilibre : un funambule avance tout seul sur un fil tendu au-dessus de quatre villes qui se suivent avec la distance (Paris, Venise, New York la nuit, un canyon), et tu le rattrapes en penchant sa perche avec ← et → ou à la souris. Plus il penche, plus il tombe vite, et ses bras se mettent à mouliner ; le vent forcit avec la distance et des rafales, annoncées par des traits blancs, le bousculent. Plein écran, distance, poteaux franchis et record.",
   "icon": "icon.png",
