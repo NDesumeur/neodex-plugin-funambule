@@ -63,7 +63,6 @@
  "Poteaux franchis": "Posts crossed",
  "RECORDS": "RECORDS",
  "Record": "Record",
- "Record.": "Record.",
  "Tous les 250 m, le fil passe au-dessus d'une autre ville : Paris, Venise, New York la nuit, puis un canyon, et ça recommence.": "Every 250 m, the wire passes over another city: Paris, Venice, New York by night, then a canyon, and round again.",
  "Traversées": "Crossings",
  "Ua": "Ua",
@@ -72,5 +71,6 @@
  "Ug": "Ug",
  "VENISE": "VENICE",
  "équilibre": "balance",
- "bras au calme": "calm arms"
+ "bras au calme": "calm arms",
+ "Rien n'est synchronisé : tes records restent sur cet appareil.": "Nothing is synced: your records stay on this device."
 }
