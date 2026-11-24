@@ -4,6 +4,13 @@ A balance game: a tightrope walker moves forward on their own along a wire stret
 
 *Version française : [README.md](README.md)*
 
+
+## Pigeons, balloons and contracts (new in 1.2.0)
+
+- **Pigeons**: they fly in and land on the end of the pole for a few seconds, and it tips toward them.
+- **Balloons**: they rise from the city; if one bumps an end of the pole, it tips suddenly.
+- **Contracts**: eight crossings to a given pole with a tray of three glasses on your head. Lean too much and the glasses slide off. One star per glass kept; each contract cleared opens the next (pigeons and balloons from the third one).
+
 ## Controls
 
 - **Space**: set off (and start again after a fall).

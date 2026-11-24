@@ -4,6 +4,13 @@ Un jeu d'équilibre : un funambule avance tout seul sur un fil tendu très haut 
 
 *English version: [README.en.md](README.en.md)*
 
+
+## Pigeons, ballons et contrats (nouveau en 1.2.0)
+
+- **Pigeons** : ils arrivent en volant et se posent quelques secondes au bout de la perche, qui penche de leur côté.
+- **Ballons** : ils montent de la ville ; s'ils cognent un bout de la perche, elle bascule d'un coup.
+- **Contrats** : huit traversées jusqu'à un poteau donné, avec un plateau de trois verres sur la tête. Si tu penches trop, les verres glissent et tombent. Une étoile par verre gardé ; chaque contrat réussi ouvre le suivant (pigeons et ballons à partir du troisième).
+
 ## Commandes
 
 - **Espace** : partir (et recommencer après une chute).

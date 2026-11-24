@@ -1,16 +1,19 @@
 {
   "id": "neodex.funambule",
   "name": "Funambule",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "author": "NDesumeur",
-  "description": "Jeu d'équilibre : un funambule avance tout seul sur un fil tendu au-dessus de quatre villes qui se suivent avec la distance (Paris, Venise, New York la nuit, un canyon), et tu le rattrapes en penchant sa perche avec ← et → ou à la souris. Plus il penche, plus il tombe vite, et ses bras se mettent à mouliner ; le vent forcit avec la distance et des rafales, annoncées par des traits blancs, le bousculent. Plein écran, distance, poteaux franchis et record.",
+  "description": "Jeu d'équilibre : un funambule avance tout seul sur un fil tendu au-dessus de quatre villes qui se suivent avec la distance (Paris, Venise, New York la nuit, un canyon), et tu le rattrapes en penchant sa perche avec ← et → ou à la souris. Plus il penche, plus il tombe vite, et ses bras se mettent à mouliner ; le vent forcit avec la distance et des rafales, annoncées par des traits blancs, le bousculent. Plein écran, distance, poteaux franchis et record. Des pigeons et des ballons qui gênent, et huit contrats avec un plateau de verres.",
   "icon": "icon.png",
   "entry": "index.js",
   "view": "funambule",
   "neobase": ">=4.0.0",
   "type": "app",
   "category": "Jeux",
-  "compatibility": ["windows", "linux"],
+  "compatibility": [
+    "windows",
+    "linux"
+  ],
   "syncMode": "aucune",
   "syncInfo": "Rien n'est synchronisé : tes records restent sur cet appareil.",
   "mobile": false,

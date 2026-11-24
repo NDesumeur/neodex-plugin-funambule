@@ -6,10 +6,12 @@ const HTML = `<div class="appWrap wide">
     <div class="gSide">
       <div class="sysCard"><b>RECORDS</b><div class="gStats" id="fuStats"></div></div>
       <div class="row"><button class="btn main" id="fuNew">NOUVELLE TRAVERSÉE</button><button class="btn" id="fuFs">PLEIN ÉCRAN</button></div>
-      <div class="hint">Penche du côté opposé à la chute. Les rafales sont annoncées par des traits blancs qui traversent l'écran.</div><div class="hint">Tous les 250 m, le fil passe au-dessus d'une autre ville : Paris, Venise, New York la nuit, puis un canyon, et ça recommence.</div>
+      <div class="sysCard"><b>CONTRATS</b><div class="hint">Traverser jusqu'au poteau demandé avec un plateau de trois verres sur la tête : s'il penche trop, les verres glissent et tombent. Une étoile par verre gardé ; chaque contrat réussi ouvre le suivant.</div><div class="fuGrid" id="fuGrid"></div></div>
+      <div class="hint">Penche du côté opposé à la chute. Les rafales sont annoncées par des traits blancs qui traversent l'écran.</div><div class="hint">Tous les 250 m, le fil passe au-dessus d'une autre ville : Paris, Venise, New York la nuit, puis un canyon, et ça recommence. Plus loin, des pigeons se posent au bout de la perche (elle penche de leur côté) et des ballons montent de la ville et la cognent.</div>
     </div></div>
 </div>`;
-const CSS = `.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+const CSS = `.fuGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}.fuGrid .btn{padding:6px 2px;font-size:12px}
+.gMain{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
 .gameBox{display:grid;place-items:center;padding:10px;background:#05010b;flex:2 1 560px;min-width:min(100%,340px);position:relative}
 .gameBox canvas{width:100%;image-rendering:pixelated;cursor:var(--cp,pointer);touch-action:none}
 .gSide{display:flex;flex-direction:column;gap:14px;flex:1;min-width:250px;max-width:420px}
@@ -410,17 +412,50 @@ const FU_SCENES = [
 ];
 const FU_STARS = Array.from({length: 40}, (_, i) => { const r = seeded(60 + i); return [Math.floor(r() * 288), Math.floor(r() * 120), r() < .3]; });
 const fuScene = d => { const m = d / 10; return {i: Math.floor(m / 250) % FU_SCENES.length, prev: (Math.floor(m / 250) + FU_SCENES.length - 1) % FU_SCENES.length, t: m < 250 ? 1 : Math.min(1, (m % 250) / 20), into: m % 250}; };
-function fuNew() { fu = Object.assign(fu || {tick: 0, raf: 0}, {seen: fu ? fu.tick : 0, mode: 'ready', th: 0, w: 0, d: 0, phi: 0, panic: 0, push: 0, gust: 0, gustDir: 1, nextGust: 400, streaks: [], fallY: 0, record: false, dead: 0, poles: 0, step: 0}); }
+// les contrats : nombre de poteaux à atteindre ; les pigeons et ballons arrivent à partir du 3e
+const FU_CT = [2, 2, 3, 3, 4, 4, 5, 6];
+fus.contracts ??= {}; fus.birds ??= 0; fus.balloons ??= 0;
+const FU_BIRD = ['..kk...', '.kgwk..', 'kgggkoo', '.kgggk.', '..kGGk.', '...y.y.'];
+const FU_BIRDS = [false, true].map(fl => { const c = el('canvas'); c.width = 7; c.height = 6; const g = c.getContext('2d'); if (fl) { g.translate(7, 0); g.scale(-1, 1); } sprite(g, FU_BIRD, 0, 0, {k: '#1a1020', g: '#9a9aa8', G: '#6a6a78', w: '#ffffff', o: '#ffa83a', y: '#ffa83a'}); return c; });
+const FU_BCOL = [['#ff4a5a', '#ffb0b8'], ['#4ac8ff', '#c0f0ff'], ['#ffd84a', '#fff4b0'], ['#7ee07a', '#d0ffc8']];
+function fuTips() {  // les deux bouts de la perche, à l'écran (sans le ploiement)
+  const th = fu.th, fy = FU.ROPE - 1 + Math.round(fu.fallY), sx = FU.X + Math.sin(th) * 14, sy = fy - Math.cos(th) * 14, cx = Math.cos(th), cy = Math.sin(th);
+  return [[sx - cx * 38, sy - cy * 38 + 3], [sx + cx * 38, sy + cy * 38 + 3]];
+}
+function fuObstacles(sp) {  // un pigeon ou un ballon de temps en temps ; le pigeon posé alourdit son bout de perche, le ballon le cogne
+  const free = fu.ck < 0, on = free ? fu.d > 300 : fu.ck >= 2;
+  if (on && --fu.nextObs <= 0) { fu.obsN++; fu.nextObs = 420 + Math.random() * 360 - Math.min(160, fu.d / 50);
+    if (fu.obsN % 2) fu.birds.push({side: Math.random() < .5 ? -1 : 1, t: 0}); else { const [, [rx, ry]] = fuTips(); fu.balloons.push({x: rx + 70, y: ry + 70 * .45 / sp + (Math.random() - .5) * 10, c: FU_BCOL[fu.obsN / 2 % 4 | 0]}); } }
+  for (const b of fu.birds) { b.t++; if (b.t > 60 && b.t < 280) fu.w += b.side * .0011; if (b.t === 61) { fuBeep(1200, .08, 'square', 900); fus.birds++; } }
+  fu.birds = fu.birds.filter(b => b.t < 330);
+  const tips = fuTips();
+  for (const b of fu.balloons) { b.x -= sp; b.y -= .45; for (const [k, [tx, ty]] of tips.entries()) if (!b.pop && Math.hypot(b.x - tx, b.y - ty) < 6) { b.pop = 12; fu.w += k ? -.03 : .03; fus.balloons++; fuBeep(300, .1, 'square', 80); } if (b.pop) b.pop--; }
+  fu.balloons = fu.balloons.filter(b => b.pop !== 0 && b.y > -20 && b.x > -20);
+}
+function fuGlasses() {  // les verres glissent sur le plateau quand on penche ; au bord, ils tombent
+  const k = .05 + fu.ck * .006;
+  for (const v of fu.glasses) if (!v.gone) { v.v = (v.v + Math.sin(fu.th) * k) * .9; v.x += v.v;
+    if (Math.abs(v.x) > 10) { v.gone = true; const th = fu.th; fu.shards.push({x: FU.X + v.x * Math.cos(th) + Math.sin(th) * 38, y: FU.ROPE - 38, vx: v.v, vy: -1, t: 0}); fuBeep(1800, .2, 'square', 300); } }
+  for (const s of fu.shards) { s.t++; s.vy += .2; s.x += s.vx; s.y += s.vy; } fu.shards = fu.shards.filter(s => s.y < FU.H + 10);
+  const left = fu.glasses.filter(v => !v.gone).length;
+  if (!left) { fu.mode = 'over'; fu.how = 'verres'; fu.dead = 0; fuBeep(200, .6, 'sawtooth', 60); fuInfo(); return true; }
+  if (fu.d >= fu.goal) { fu.mode = 'won'; fu.stars = left; fu.dead = 0; if (left > (fus.contracts[fu.ck] || 0)) fus.contracts = {...fus.contracts, [fu.ck]: left}; saveGames(); fuInfo(); fuGrid(); [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => fuBeep(f, .15, 'square'), i * 100)); return true; }
+  return false;
+}
+function fuNew(ck = -1) { fu = Object.assign(fu || {tick: 0, raf: 0}, {ck, goal: ck >= 0 ? FU_CT[ck] * FU.POLE + 40 : 0, glasses: ck >= 0 ? [-6, 0, 6].map(x => ({x, v: 0})) : [], shards: [], birds: [], balloons: [], nextObs: ck >= 0 ? 260 : 500, obsN: 0, how: '', stars: 0}); Object.assign(fu, {seen: fu ? fu.tick : 0, mode: 'ready', th: 0, w: 0, d: 0, phi: 0, panic: 0, push: 0, gust: 0, gustDir: 1, nextGust: 400, streaks: [], fallY: 0, record: false, dead: 0, poles: 0, step: 0}); }
 let fuac = null;
 let fuBeep = function (f, d, type = 'triangle', slide = 0) { try { fuac ??= new AudioContext(); const o = fuac.createOscillator(), g = fuac.createGain(), t = fuac.currentTime; o.type = type; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(.05, t); g.gain.exponentialRampToValueAtTime(.0001, t + d); o.connect(g).connect(fuac.destination); o.start(t); o.stop(t + d + .02); } catch {} }
 const fuKeys = {L: false, R: false, ptr: 0};
 function fuStart() {
   if (fu.mode === 'ready') { fu.mode = 'play'; fus.games++; saveGames(); }
   else if (fu.mode === 'pause') fu.mode = 'play';
-  else if (fu.mode === 'over' && fu.dead > 50) fuNew();
+  else if (fu.mode === 'over' && fu.dead > 50) fuNew(fu.ck);
+  else if (fu.mode === 'won' && fu.dead > 50) fuNew(fu.ck + 1 < FU_CT.length ? fu.ck + 1 : -1);
 }
 const fuWind = () => (fuNoise(fu.d / 90) - .5) * Math.min(1, fu.d / 2500) * .0016 + fu.gust * fu.gustDir;
 function fuUpdate() {
+  if (fu.mode === 'won') { fu.dead++; return; }
+  if (fu.mode === 'over' && fu.how === 'verres') { fu.dead++; for (const s of fu.shards) { s.vy += .2; s.x += s.vx; s.y += s.vy; } return; }
   if (fu.mode === 'over') { fu.dead++; fu.th += Math.sign(fu.th) * .05; fu.fallY += 1 + fu.dead * .15; fu.panic = 1; fu.phi += .5; return; }
   if (fu.mode !== 'play') return;
   const sp = .55 + Math.min(.35, fu.d / 8000); fu.d += sp; fu.step += sp;
@@ -429,11 +464,13 @@ function fuUpdate() {
   if (--fu.nextGust === 60) { fu.gustDir = Math.random() < .5 ? -1 : 1; for (let i = 0; i < 6; i++) fu.streaks.push({x: fu.gustDir > 0 ? -20 - i * 30 : FU.W + 20 + i * 30, y: 30 + Math.random() * 120}); }
   if (fu.nextGust <= 0) { fu.gust = .0006 + Math.min(.0006, fu.d / 30000); fu.nextGust = 360 + Math.random() * 300 - Math.min(150, fu.d / 40); fuBeep(180, .5, 'sawtooth', 120); }
   fu.gust *= .985;
+  fuObstacles(sp);
   fu.w += Math.sin(fu.th) * .003 + fuWind() * Math.cos(fu.th) + fu.push * .0026; fu.w *= .98; fu.th += fu.w;
+  if (fu.ck >= 0 && fuGlasses()) return;
   const pk = Math.min(1, Math.max(0, (Math.abs(fu.th) - .35) / .4)); fu.panic += (pk - fu.panic) * .15; fu.phi += (.12 + .38 * fu.panic) * (fu.th > 0 ? 1 : -1) * (fu.panic > .05 ? 1 : 0);
   for (const s of fu.streaks) s.x += fu.gustDir * 5; fu.streaks = fu.streaks.filter(s => s.x > -60 && s.x < FU.W + 60 + 200);
   if (Math.floor((fu.d - sp) / FU.POLE) < Math.floor(fu.d / FU.POLE)) { fu.poles++; fuBeep(784, .12, 'square', 1046); }
-  if (Math.abs(fu.th) > FU.FALL) { fu.mode = 'over'; fu.dead = 0; fuBeep(500, .9, 'triangle', 60); const m = Math.floor(fu.d / 10); fu.record = best('funambule', m); fus.poles += fu.poles; fus.meters += m; saveGames(); fuInfo(); }
+  if (Math.abs(fu.th) > FU.FALL) { fu.mode = 'over'; fu.dead = 0; fuBeep(500, .9, 'triangle', 60); const m = Math.floor(fu.d / 10); fu.record = fu.ck < 0 && best('funambule', m); fus.poles += fu.poles; fus.meters += m; saveGames(); fuInfo(); }
 }
 function fuLine(g, x0, y0, x1, y1, c) { const n = Math.ceil(Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0))); for (let i = 0; i <= n; i++) px(g, c, x0 + (x1 - x0) * i / n, y0 + (y1 - y0) * i / n, 1, 1); }
 function fuDraw() {
@@ -463,6 +500,8 @@ function fuDraw() {
   const step = Math.sin(ph) * 3, knee = Math.abs(Math.cos(ph)) * 2;
   for (const [sgn, c] of [[-1, '#1a1020'], [1, '#2a3a8a']]) { g.fillStyle = '#1a1020'; seg(sgn * 2, -12, sgn * step + 1, -6 - knee, '#1a1020', 3); seg(sgn * step + 1, -6 - knee, sgn * step * 1.4, 0, '#1a1020', 3); g.fillStyle = c; seg(sgn * 2, -12, sgn * step + 1, -6 - knee, c, 1); seg(sgn * step + 1, -6 - knee, sgn * step * 1.4, -1, c, 1); px(g, '#1a1020', Math.round(sgn * step * 1.4) - 2, -2, 5, 2); }
   g.drawImage(FU_SPR, -5, -31);
+  if (fu.ck >= 0) { px(g, '#1a1020', -12, -34, 24, 3); px(g, '#c8c8d8', -11, -33, 22, 1);  // le plateau et ses verres
+    for (const v of fu.glasses) if (!v.gone) { const x = Math.round(v.x) - 2; px(g, '#1a1020', x - 1, -42, 6, 8); px(g, '#c8f0ff', x, -41, 4, 7); px(g, '#d83a5a', x, -38, 4, 3); px(g, '#ffffff', x, -41, 1, 3); } }
   // les bras : posés sur la perche, ou qui moulinent quand il penche
   const sh = [[-4, -20], [4, -20]], hands = sh.map(([x, y], i) => { const rest = [x * 2.1, -14], a = fu.phi + i * Math.PI, wind = [x + Math.sin(a) * 9, y - Math.cos(a) * 9]; return rest.map((v, k) => v + (wind[k] - v) * fu.panic); });
   sh.forEach(([x, y], i) => { const [hx, hy] = hands[i], ex = (x + hx) / 2 + (i ? 2 : -2) * (1 - fu.panic), ey = (y + hy) / 2 + 1; g.fillStyle = '#1a1020'; seg(x, y, ex, ey, '#1a1020', 3); seg(ex, ey, hx, hy, '#1a1020', 3); g.fillStyle = '#ff4a5a'; seg(x, y, ex, ey, '#ff4a5a', 1); g.fillStyle = '#ffd0a8'; seg(ex, ey, hx, hy, '#ffd0a8', 1); px(g, '#ffd0a8', Math.round(hx) - 1, Math.round(hy) - 1, 2, 2); });
@@ -471,18 +510,30 @@ function fuDraw() {
   const sx = X + Math.sin(th) * 14, sy = fy - Math.cos(th) * 14, cx = Math.cos(th), cy = Math.sin(th), L = 38, tip = fu.push * 3;
   fuLine(g, sx - cx * L, sy - cy * L + 3 - tip, sx + cx * L, sy + cy * L + 3 + tip, '#1a1020');
   px(g, '#ff4a5a', sx - cx * L - 1, sy - cy * L + 2 - tip, 3, 3); px(g, '#ff4a5a', sx + cx * L - 1, sy + cy * L + 2 + tip, 3, 3);
+  const tips = fuTips();  // les pigeons (qui arrivent en volant puis se posent) et les ballons
+  for (const b of fu.birds) { const [tx, ty] = tips[b.side > 0 ? 1 : 0], k = b.t < 60 ? 1 - b.t / 60 : b.t > 280 ? (b.t - 280) / 50 : 0, fx = tx + b.side * 120 * k, fy2 = ty - 7 - 70 * k, wing = k && (fu.tick >> 2) % 2;
+    g.drawImage(FU_BIRDS[b.side > 0 ? 1 : 0], Math.round(fx) - 3, Math.round(fy2)); if (wing) px(g, '#6a6a78', Math.round(fx) - 1, Math.round(fy2) - 2, 3, 2); }
+  for (const b of fu.balloons) { const x = Math.round(b.x), y = Math.round(b.y); if (b.pop) { for (let i = 0; i < 8; i++) { const a = i * .785, r = 12 - b.pop; px(g, b.c[0], x + Math.cos(a) * r, y + Math.sin(a) * r, 1, 1); } continue; }
+    fuLine(g, x, y + 5, x + Math.round(Math.sin((fu.tick + x) / 9)), y + 13, '#1a1020'); for (let yy = -5; yy <= 5; yy++) { const w = Math.round(Math.sqrt(25 - yy * yy) * .85); px(g, '#1a1020', x - w - 1, y + yy, w * 2 + 3, 1); } for (let yy = -4; yy <= 4; yy++) { const w = Math.round(Math.sqrt(16 - yy * yy) * .85); px(g, b.c[0], x - w, y + yy, w * 2 + 1, 1); } px(g, b.c[1], x - 2, y - 3, 2, 2); }
+  for (const s of fu.shards) { px(g, '#c8f0ff', s.x, s.y, 2, 2); px(g, '#d83a5a', s.x + 2, s.y + 1, 1, 1); }
   // la jauge d'équilibre : un arc de pixels, l'aiguille et la zone rouge
   for (let a = -FU.FALL; a <= FU.FALL; a += .03) px(g, Math.abs(a) > FU.FALL * .7 ? '#ff4a5a' : '#ffffff', W / 2 + Math.sin(a) * 30, 46 - Math.cos(a) * 30, 1, 1);
   fuLine(g, W / 2, 46, W / 2 + Math.sin(fu.th) * 26, 46 - Math.cos(fu.th) * 26, Math.abs(fu.th) > FU.FALL * .7 ? '#ff4a5a' : '#ffd84a');
   pxFont(g, Math.floor(fu.d / 10) + ' m', 6, 14, '#ffffff', 12);
+  if (fu.ck >= 0) { pxFont(g, 'CONTRAT ' + (fu.ck + 1) + ' : ' + Math.floor(fu.goal / 10) + ' m', 6, 26, '#ffd84a', 8); const p = Math.min(1, fu.d / fu.goal); px(g, '#1a1020', 6, 30, 82, 4); px(g, '#ffd84a', 7, 31, Math.round(80 * p), 2); }
   if (fu.mode === 'play' && SC.into < 30 && (fu.d > 0)) { g.globalAlpha = Math.min(1, (30 - SC.into) / 8); pxFont(g, sc.name, W / 2, 80, '#ffd84a', 16, 'center'); g.globalAlpha = 1; }
   if (fu.mode === 'play' && Math.abs(fuWind()) > .0006) pxFont(g, fuWind() > 0 ? 'VENT →' : '← VENT', W - 6, 14, '#ffffff', 8, 'right');
   if (fu.mode === 'ready') gameText(g, W, [['FUNAMBULE', '#ff4a5a', 16], ['Maintiens ← ou → pour te rattraper', '#ffffff'], ['Espace pour partir', '#b8b0d8'], ['Record ' + (games.best.funambule || 0) + ' m', '#ffd84a']], 78);
   if (fu.mode === 'pause') gameText(g, W, [['PAUSE', '#ffffff', 12], ['Espace pour reprendre', '#b8b0d8']], 90);
-  if (fu.mode === 'over' && fu.dead > 40) gameText(g, W, [['CHUTE !', '#ff4a5a', 14], [Math.floor(fu.d / 10) + ' m · ' + fu.poles + ' poteaux', '#ffffff'], [fu.record ? 'NOUVEAU RECORD !' : 'Record ' + (games.best.funambule || 0) + ' m', '#ffd84a'], [fu.dead > 50 ? 'Espace pour recommencer' : '', '#b8b0d8']], 78);
+  if (fu.mode === 'won' && fu.dead > 30) gameText(g, W, [['CONTRAT RÉUSSI !', '#7ee07a', 14], ['*'.repeat(fu.stars) + ' · ' + fu.stars + (fu.stars > 1 ? ' verres gardés' : ' verre gardé'), '#ffd84a'], [fu.dead > 50 ? (fu.ck + 1 < FU_CT.length ? 'Espace : contrat suivant' : 'Espace : traversée libre') : '', '#b8b0d8']], 78);
+  if (fu.mode === 'over' && fu.how === 'verres' && fu.dead > 40) gameText(g, W, [['PLUS DE VERRES !', '#ff4a5a', 14], ['Contrat ' + (fu.ck + 1) + ' raté à ' + Math.floor(fu.d / 10) + ' m', '#ffffff'], [fu.dead > 50 ? 'Espace pour recommencer' : '', '#b8b0d8']], 78);
+  else if (fu.mode === 'over' && fu.dead > 40) gameText(g, W, [['CHUTE !', '#ff4a5a', 14], [Math.floor(fu.d / 10) + ' m · ' + fu.poles + ' poteaux', '#ffffff'], [fu.record ? 'NOUVEAU RECORD !' : 'Record ' + (games.best.funambule || 0) + ' m', '#ffd84a'], [fu.dead > 50 ? 'Espace pour recommencer' : '', '#b8b0d8']], 78);
+}
+function fuGrid() {  // les contrats : chacun s'ouvre quand le précédent est réussi
+  $('fuGrid').replaceChildren(...FU_CT.map((n, i) => { const s = fus.contracts[i] || 0, b = el('button', 'btn' + (fu?.ck === i ? ' main' : ''), (i + 1) + (s ? ' ' + '*'.repeat(s) : '')); b.title = n * 26 + ' m'; b.disabled = i > 0 && !fus.contracts[i - 1]; b.onclick = () => { fuNew(i); fuGrid(); }; return b; }));
 }
 function fuInfo() {
-  $('fuStats').replaceChildren(...[['Plus loin', (games.best.funambule || 0) + ' m'], ['Traversées', fus.games], ['Poteaux franchis', fus.poles], ['Distance totale', fus.meters + ' m']].flatMap(([a, b]) => [el('span', '', a), el('b', '', String(b))]));
+  $('fuStats').replaceChildren(...[['Plus loin', (games.best.funambule || 0) + ' m'], ['Traversées', fus.games], ['Poteaux franchis', fus.poles], ['Distance totale', fus.meters + ' m'], ['Contrats', Object.keys(fus.contracts).length + ' / ' + FU_CT.length + ' · ' + Object.values(fus.contracts).reduce((a, b) => a + b, 0) + ' étoiles'], ['Pigeons posés', fus.birds], ['Ballons éclatés', fus.balloons]].flatMap(([a, b]) => [el('span', '', a), el('b', '', String(b))]));
 }
 document.addEventListener('keydown', e => {
   if (!view.classList.contains('on') || !fu || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
@@ -494,7 +545,7 @@ document.addEventListener('keydown', e => {
 document.addEventListener('keyup', e => { if (['ArrowLeft', 'a', 'q'].includes(e.key)) fuKeys.L = false; if (['ArrowRight', 'd'].includes(e.key)) fuKeys.R = false; });
 $('fuCanvas').onpointerdown = e => { e.preventDefault(); if (!fu) return; if (fu.mode !== 'play') return fuStart(); const b = e.currentTarget.getBoundingClientRect(); fuKeys.ptr = e.clientX < b.left + b.width / 2 ? -1 : 1; };
 document.addEventListener('pointerup', () => { fuKeys.ptr = 0; });
-$('fuNew').onclick = () => { fuNew(); $('fuNew').blur(); };
+$('fuNew').onclick = () => { fuNew(); fuGrid(); $('fuNew').blur(); };
 $('fuFs').onclick = () => { $('fuFs').blur(); try { if (document.fullscreenElement) document.exitFullscreen(); else $('fuCanvas').parentElement.requestFullscreen?.().catch(() => {}); } catch {} };
 function fuCheck() {  // vérification : sans rien faire il tombe ; en corrigeant contre l'angle il tient 60 s ; les villes se suivent ; les bras moulinent quand il penche
   const keep = fu, realBest = games.best.funambule, realStats = {...fus}, kb = fuBeep, bad = []; fuBeep = () => {}; fu = null;
@@ -502,14 +553,22 @@ function fuCheck() {  // vérification : sans rien faire il tombe ; en corrigean
   fuNew(); fu.mode = 'play'; fu.th = .05; let calm = true; for (let i = 0; i < 3600 && fu.mode === 'play'; i++) { fuKeys.L = fu.th + fu.w * 12 > 0; fuKeys.R = !fuKeys.L; fuUpdate(); if (Math.abs(fu.th) < .2 && fu.panic > .5) calm = false; } if (fu.mode !== 'play') bad.push('équilibre'); if (!calm) bad.push('bras au calme'); fuKeys.L = fuKeys.R = false;
   if ([0, 2600, 5100, 7600, 10100].map(d => fuScene(d).i).join() !== '0,1,2,3,0' || fuScene(2600).t !== .5 || fuScene(100).t !== 1) bad.push('villes');
   fuNew(); fu.mode = 'play'; fu.th = .7; const p0 = fu.phi; for (let i = 0; i < 12; i++) { fu.w = 0; fu.th = .7; fuUpdate(); } if (!(fu.panic > .5 && fu.phi - p0 > 1)) bad.push('moulinet');
+  const kc = {...fus.contracts}, kbi = fus.birds, kba = fus.balloons;
+  const drift = birds => { fuNew(); fu.mode = 'play'; fu.birds = birds; fu.nextObs = 1e9; for (let i = 0; i < 40; i++) fuUpdate(); return fu.th; };
+  if (!(drift([{side: 1, t: 61}]) > drift([]) + .02 && drift([{side: -1, t: 61}]) < -.02)) bad.push('pigeon');
+  fuNew(); fu.mode = 'play'; fu.nextObs = 1e9; const [, [rx, ry]] = fuTips(); fu.balloons = [{x: rx + .6, y: ry + .45, c: FU_BCOL[0]}]; const w0 = fu.w; fuUpdate(); if (!(fu.w < w0 - .02 && fu.balloons[0]?.pop)) bad.push('ballon');
+  fuNew(0); fu.mode = 'play'; for (let i = 0; i < 40 && fu.mode === 'play'; i++) { fu.th = .6; fu.w = 0; fuUpdate(); } if (fu.glasses.every(v => !v.gone)) bad.push('les verres ne glissent pas');
+  fuNew(0); fu.mode = 'play'; for (let i = 0; i < 300; i++) { fu.th = 0; fu.w = 0; fuUpdate(); } if (fu.glasses.some(v => v.gone)) bad.push('les verres tombent à plat');
+  fu.d = fu.goal - .1; fu.th = 0; fuUpdate(); if (!(fu.mode === 'won' && fu.stars === 3 && fus.contracts[0] === 3)) bad.push('contrat réussi');
+  fus.contracts = kc; fus.birds = kbi; fus.balloons = kba;
   if (FU_BODY.some(r => r.length !== 11) || FU_SCENES.some(S => S.far.width !== FU_TW || S.near.width !== FU_TW)) bad.push('dessins');
   if (realBest === undefined) delete games.best.funambule; else games.best.funambule = realBest; Object.assign(fus, realStats); fuBeep = kb;
   fu = keep; return bad.length ? bad.join(', ') : 'ok';
 }
 { const c = fuCheck(); console.assert(c === 'ok', 'funambule', c); }
-$('fuCanvas').__fu = {st: () => fu, check: fuCheck, keys: fuKeys};
+$('fuCanvas').__fu = {st: () => fu, check: fuCheck, keys: fuKeys, go: fuNew, tips: fuTips};
 ctx.onOpen(() => {
-  if (!fu || !fu.g) { fuNew(); fu.g = $('fuCanvas').getContext('2d'); }
+  if (!fu || !fu.g) { fuNew(); fu.g = $('fuCanvas').getContext('2d'); } fuGrid();
   gameLoop(fu, 'funambule', fuUpdate, fuDraw); fuInfo();
 });
 }

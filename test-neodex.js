@@ -20,6 +20,11 @@ module.exports = async ({ pj, sleep }) => {
   // la chute
   await C(`fu.th = 1.2; return 0;`); await sleep(1000); if (await C('return fu.mode;') !== 'over') throw new Error('il devait tomber'); await shot('6-chute');
   await pj(`document.getElementById('fuNew').click(), 0`);
+  // le contrat 1 (plateau de verres) avec un pigeon posé et un ballon qui monte, pour l'image
+  const ng = await pj(`document.querySelectorAll('#fuGrid button').length`); if (ng !== 8) throw new Error('contrats affichés : ' + ng);
+  await pj(`(() => { const T = document.getElementById('fuCanvas').__fu; T.go(0); const fu = T.st(); fu.mode = 'play'; fu.nextObs = 1e9; fu.birds = [{side: -1, t: 80}]; const [, [rx, ry]] = T.tips(); fu.balloons = [{x: rx + 30, y: ry + 30, c: ['#4ac8ff', '#c0f0ff']}]; return 0; })()`);
+  await sleep(500); await shot('5-contrat');
+  const gl = await pj(`document.getElementById('fuCanvas').__fu.st().glasses.length`); if (gl !== 3) throw new Error('verres : ' + gl);
   const errs = await pj(`window.__e.join(' | ')`); if (errs) throw new Error('erreur : ' + errs);
   // plein écran, et la zone de jeu qui tient dans la fenêtre
   await pj(`document.fullscreenElement && document.exitFullscreen(), 0`); await sleep(200);
@@ -30,5 +35,5 @@ module.exports = async ({ pj, sleep }) => {
   const L = await pj(`(() => { const r = document.getElementById('fuCanvas').getBoundingClientRect(); let s = 0; for (let e = document.getElementById('fuCanvas').parentElement; e; e = e.parentElement) s += e.scrollTop; return { bottom: Math.round(r.bottom + s), h: Math.round(r.height), wh: innerHeight, ww: innerWidth, sw: document.documentElement.scrollWidth }; })()`);
   if (process.env.NEO_FIT_LOG) console.log('FIT', JSON.stringify(L));
   if (L.bottom > L.wh + 1 || L.sw > L.ww + 1 || L.h < 300) throw new Error('la zone de jeu dépasse la fenêtre ou reste petite : ' + JSON.stringify(L));
-  return 'vérification ok · traversée tenue · 4 villes · moulinet · chute · plein écran · ' + L.h + ' px dans ' + L.ww + '×' + L.wh;
+  return 'vérification ok · traversée tenue · 4 villes · moulinet · chute · contrats, pigeon, ballon · plein écran · ' + L.h + ' px dans ' + L.ww + '×' + L.wh;
 };
