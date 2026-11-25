@@ -305,6 +305,9 @@ export default async function (ctx) {
   const saveGames = () => { clearTimeout(gamesTimer); gamesTimer = setTimeout(() => { gamesTimer = null; folder.write('games', games).catch(() => {}); }, 500); };
   const best = (k, v) => { const b = games.best[k]; if (b == null || v > b) { games.best[k] = v; saveGames(); return true; } return false; };
   const gstore = (k, init) => (games[k] ??= init);
+  // les trophées de NeoDex (3.4.8 et plus) : succès et records déclarés dans plugin.json ; sur un NeoDex plus ancien, rien ne se passe
+  const trophy = id => { ctx.games?.unlock(id).catch(() => {}); };
+  const trophyRecord = (id, v) => { if (v != null && Number.isFinite(+v)) ctx.games?.record(id, +v).catch(() => {}); };
 function gameLoop(st, appKey, update, draw) {
   cancelAnimationFrame(st.raf);
   const STEP = 1000 / 60; let acc = 0, last = performance.now();
@@ -533,6 +536,7 @@ function fuGrid() {  // les contrats : chacun s'ouvre quand le précédent est r
   $('fuGrid').replaceChildren(...FU_CT.map((n, i) => { const s = fus.contracts[i] || 0, b = el('button', 'btn' + (fu?.ck === i ? ' main' : ''), (i + 1) + (s ? ' ' + '*'.repeat(s) : '')); b.title = n * 26 + ' m'; b.disabled = i > 0 && !fus.contracts[i - 1]; b.onclick = () => { fuNew(i); fuGrid(); }; return b; }));
 }
 function fuInfo() {
+  setTimeout(fuTrophies);
   $('fuStats').replaceChildren(...[['Plus loin', (games.best.funambule || 0) + ' m'], ['Traversées', fus.games], ['Poteaux franchis', fus.poles], ['Distance totale', fus.meters + ' m'], ['Contrats', Object.keys(fus.contracts).length + ' / ' + FU_CT.length + ' · ' + Object.values(fus.contracts).reduce((a, b) => a + b, 0) + ' étoiles'], ['Pigeons posés', fus.birds], ['Ballons éclatés', fus.balloons]].flatMap(([a, b]) => [el('span', '', a), el('b', '', String(b))]));
 }
 document.addEventListener('keydown', e => {
@@ -567,6 +571,13 @@ function fuCheck() {  // vérification : sans rien faire il tombe ; en corrigean
 }
 { const c = fuCheck(); console.assert(c === 'ok', 'funambule', c); }
 $('fuCanvas').__fu = {st: () => fu, check: fuCheck, keys: fuKeys, go: fuNew, tips: fuTips};
+// les trophées, tirés des statistiques et des records gardés (aussi à l'ouverture : ce qui a été fait avant compte)
+function fuTrophies() {
+  const b = games.best.funambule, sig = [b, fus.games, fus.meters, fus.poles].join(); if (sig === fuTrophies.sig) return; fuTrophies.sig = sig;
+  trophyRecord('distance', b || null);
+  if (fus.meters > 0 || b) trophy('premier'); if (b >= 250) trophy('m250'); if (b >= 500) trophy('m500'); if (b >= 1000) trophy('m1000');
+  if (fus.meters >= 10000) trophy('km10'); if (fus.poles >= 100) trophy('poteaux');
+}
 ctx.onOpen(() => {
   if (!fu || !fu.g) { fuNew(); fu.g = $('fuCanvas').getContext('2d'); } fuGrid();
   gameLoop(fu, 'funambule', fuUpdate, fuDraw); fuInfo();

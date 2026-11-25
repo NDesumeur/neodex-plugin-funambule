@@ -1,7 +1,7 @@
 {
   "id": "neodex.funambule",
   "name": "Funambule",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "author": "NDesumeur",
   "description": "Jeu d'équilibre : un funambule avance tout seul sur un fil tendu au-dessus de quatre villes qui se suivent avec la distance (Paris, Venise, New York la nuit, un canyon), et tu le rattrapes en penchant sa perche avec ← et → ou à la souris. Plus il penche, plus il tombe vite, et ses bras se mettent à mouliner ; le vent forcit avec la distance et des rafales, annoncées par des traits blancs, le bousculent. Plein écran, distance, poteaux franchis et record. Des pigeons et des ballons qui gênent, et huit contrats avec un plateau de verres.",
   "icon": "icon.png",
@@ -22,5 +22,47 @@
   "sdk": "2.1.0",
   "permissions": [
     "storage"
+  ],
+  "succes": [
+    {
+      "id": "premier",
+      "nom": "Premiers pas",
+      "texte": "Finir une première traversée"
+    },
+    {
+      "id": "m250",
+      "nom": "Au-dessus de Venise",
+      "texte": "Marcher 250 mètres d'un coup"
+    },
+    {
+      "id": "m500",
+      "nom": "New York la nuit",
+      "texte": "Marcher 500 mètres d'un coup"
+    },
+    {
+      "id": "m1000",
+      "nom": "Le fil infini",
+      "texte": "Marcher 1 000 mètres d'un coup",
+      "cache": true
+    },
+    {
+      "id": "km10",
+      "nom": "Globe-trotteur",
+      "texte": "Marcher 10 kilomètres en tout"
+    },
+    {
+      "id": "poteaux",
+      "nom": "De poteau en poteau",
+      "texte": "Passer 100 poteaux en tout"
+    }
+  ],
+  "records": [
+    {
+      "id": "distance",
+      "nom": "Plus longue traversée",
+      "sens": "haut",
+      "format": "nombre",
+      "unite": "m"
+    }
   ]
 }
